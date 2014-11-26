@@ -1,0 +1,64 @@
+static uint8_t create_signature (uint8_t * hash, size_t hash_len, uint8_t *script){
+	unsigned char priv_key[] = { 0x0C, 0xAE, 0xCF, 0x01, 0xD7, 0x41, 0x02, 0xA2, 0x8A, 0xED, 0x6A, 0x64, 0xDC, 0xF1, 0xCF, 0x7B, 0x0E, 0x41, 0xC4, 0xDD, 0x6C, 0x62, 0xF7, 0x0F, 0x46, 0xFE, 0xBD, 0xC3, 0x25, 0x14, 0xF0, 0xBD };
+
+	uint8_t pub_key[] ={0x04, 0x14,0xe3,0x01,0xb2,0x32,0x8f,0x17,0x44,0x2c,0x0b,0x83,0x10,0xd7,0x87,0xbf,0x3d,0x8a,0x40,0x4c,0xfb,0xd0,0x70,0x4f,0x13,0x5b,0x6a,0xd4,0xb2,0xd3,0xee,0x75,0x13,0x10,0xf9,0x81,0x92,0x6e,0x53,0xa6,0xe8,0xc3,0x9b,0xd7,0xd3,0xfe,0xfd,0x57,0x6c,0x54,0x3c,0xce,0x49,0x3c,0xba,0xc0,0x63,0x88,0xf2,0x65,0x1d,0x1a,0xac,0xbf,0xcd};
+	
+
+	if (32 != sizeof(priv_key)){
+		printf("invalid key; %d"+sizeof(priv_key));
+		return -1;
+	}
+	
+	if (32 != hash_len){
+		printf("invalid hash_len; %d"+hash_len);
+		return -1;
+	}
+	
+	/* Compact sign. */
+	int signaturelen = 72;//72 is the biggest signature possible.
+	unsigned char csignature[signaturelen];
+
+
+	/*WARNING: assured to be random because it is the first number i thinked. blame yourself if you don't use secure random. to be fair you sould NEVER use the same rnd. Also cannot be 0*/
+	unsigned char rnd[hash_len];
+	rnd[0]=1;
+	for (int i = 1; i < hash_len; i++){
+		rnd[i]=0;
+	}	
+	
+	/* initialize */
+	secp256k1_start(SECP256K1_START_SIGN);
+	
+	int result = secp256k1_ecdsa_sign(hash, hash_len, csignature, &signaturelen, priv_key, rnd);
+	
+	/* shutdown */
+	secp256k1_stop();
+	
+	if ( result != 1 ) {
+		return -1;
+	}
+	
+	
+	printf ("\nsignature %d: ", signaturelen);
+	for (int i = 0; i < signaturelen; i++)
+    {
+      printf ("%02x", csignature[i]);
+    }
+
+	int count =0;
+	script[count++] = 0x47; //PUSHDATA
+	
+	for (int i=0;i<signaturelen;i++){ 
+		script[count++] = csignature[i]; 
+	}
+	
+	script[count++] = 0x01; //SIGHAS_HALL
+	//public key X and y
+	for (int i=0;i<sizeof(pub_key);i++){ 
+		script[count++] = pub_key[i]; 
+	}
+	
+	printf("\nfinal scrpt_sig size: %d02x", count);
+	
+	return 0;
+}
