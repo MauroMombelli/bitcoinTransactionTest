@@ -30,7 +30,8 @@ int create_signature (uint8_t * hash, int len)
 	BN_hex2bn(&res,"0caecf01d74102a28aed6a64dcf1cf7b0e41c4dd6c62f70f46febdc32514f0bd");
 	eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
 	group = EC_KEY_get0_group(eckey);
-	pub_key = EC_POINT_new(group);
+	
+	
 	EC_KEY_set_private_key(eckey, res);
 	
 	int function_status = -1;
@@ -47,6 +48,36 @@ int create_signature (uint8_t * hash, int len)
 			printf ("\nOK to generate EC Signature len: %d \n", nSize);
 			for (int i=0;i<nSize; i++){
 				printf ("%02X", ris[i]);
+			}
+			
+			{
+				pub_key = EC_POINT_new(group);
+				if (!EC_POINT_mul(group, pub_key, res, NULL, NULL, ctx))
+					printf("Error at EC_POINT_mul.\n");
+				EC_KEY_set_public_key(eckey, pub_key);
+	
+				char *cc = EC_POINT_point2hex(group, pub_key, 4, ctx);
+
+				char *c=cc;
+
+				int i;
+
+				printf("\npublic key:");
+				for (i=0; i<130; i++) // 1 byte 0x42, 32 bytes for X coordinate, 32 bytes for Y coordinate
+				{
+					printf("%c", *c++);
+				}
+				free(cc);
+			}
+			int verify_status = ECDSA_verify(0, hash, sizeof(hash), ris, nSize, eckey);
+			const int verify_success = 1;
+			if (verify_success != verify_status)
+			{
+				printf("\nFailed to verify EC Signature\n");
+				function_status = -1;
+			}else{
+				printf("\nVerifed EC Signature\n");
+				function_status = 1;
 			}
 		}
 		EC_KEY_free (eckey);
